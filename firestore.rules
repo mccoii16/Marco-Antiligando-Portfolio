@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email.lower() == "martiligando@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidGalleryItem(data) {
+      return data.keys().hasAll(['url', 'type', 'createdAt', 'authorUid']) &&
+             data.url is string && data.url.size() > 0 && data.url.size() < 2048 &&
+             data.type in ['image', 'video'] &&
+             data.authorUid == request.auth.uid &&
+             data.createdAt is timestamp &&
+             (!('title' in data) || (data.title is string && data.title.size() < 200)) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000));
+    }
+
+    match /gallery/{itemId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidGalleryItem(request.resource.data);
+      allow update: if isAuthenticated() && 
+                    isValidGalleryItem(request.resource.data) && 
+                    resource.data.authorUid == request.auth.uid;
+      allow delete: if isAuthenticated() && 
+                    (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+    
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
