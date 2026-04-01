@@ -31,7 +31,9 @@ import {
   Image as ImageIcon,
   Loader2,
   Upload,
-  Film
+  Film,
+  Edit,
+  Check
 } from 'lucide-react';
 import { 
   db, 
@@ -48,6 +50,7 @@ import {
   orderBy, 
   onSnapshot, 
   deleteDoc, 
+  updateDoc,
   doc, 
   serverTimestamp,
   ref,
@@ -162,11 +165,17 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+const CATEGORIES = [
+  "Graphics",
+  "Website Designs/Web Apps",
+  "Videos"
+];
+
 interface GalleryItem {
   id: string;
   url: string;
   type: 'image' | 'video';
-  title?: string;
+  category?: string;
   description?: string;
   createdAt: any;
   authorUid: string;
@@ -464,6 +473,11 @@ const Gallery = () => {
   const [visibleCount, setVisibleCount] = useState(9);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string>("All");
+
+  const filteredItems = activeCategory === "All" 
+    ? items 
+    : items.filter(item => item.category === activeCategory);
 
   useEffect(() => {
     const q = query(collection(db, 'gallery'), orderBy('createdAt', 'desc'));
@@ -482,13 +496,13 @@ const Gallery = () => {
 
   const handleNext = () => {
     if (selectedItemIndex !== null) {
-      setSelectedItemIndex((selectedItemIndex + 1) % items.length);
+      setSelectedItemIndex((selectedItemIndex + 1) % filteredItems.length);
     }
   };
 
   const handlePrev = () => {
     if (selectedItemIndex !== null) {
-      setSelectedItemIndex((selectedItemIndex - 1 + items.length) % items.length);
+      setSelectedItemIndex((selectedItemIndex - 1 + filteredItems.length) % filteredItems.length);
     }
   };
 
@@ -503,6 +517,26 @@ const Gallery = () => {
           <div className="text-blue-500 font-mono text-sm uppercase tracking-widest">Portfolio</div>
         </div>
 
+        {/* Category Filters */}
+        <div className="flex flex-wrap gap-4 mb-12">
+          {["All", ...CATEGORIES].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => {
+                setActiveCategory(cat);
+                setVisibleCount(9);
+              }}
+              className={`px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${
+                activeCategory === cat 
+                  ? "bg-blue-600 border-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
+                  : "bg-transparent border-white/10 text-gray-500 hover:border-white/30 hover:text-white"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="text-blue-500 animate-spin" size={40} />
@@ -510,7 +544,7 @@ const Gallery = () => {
         ) : (
           <>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {items.slice(0, visibleCount).map((item, index) => (
+                {filteredItems.slice(0, visibleCount).map((item, index) => (
                   <motion.div 
                     key={item.id}
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -533,21 +567,21 @@ const Gallery = () => {
                     ) : (
                       <img 
                         src={item.url} 
-                        alt={item.title || "Gallery Item"} 
+                        alt={item.category || "Gallery Item"} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         referrerPolicy="no-referrer"
                       />
                     )}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center p-6 text-center">
                       <Maximize2 className="text-white mb-4" size={32} />
-                      {item.title && <h3 className="text-white font-bold text-lg mb-1">{item.title}</h3>}
+                      {item.category && <h3 className="text-white font-bold text-lg mb-1">{item.category}</h3>}
                       {item.description && <p className="text-gray-300 text-xs line-clamp-2">{item.description}</p>}
                     </div>
                   </motion.div>
                 ))}
               </div>
 
-            {visibleCount < items.length && (
+            {visibleCount < filteredItems.length && (
               <div className="mt-12 text-center">
                 <button 
                   onClick={() => setVisibleCount(prev => prev + 9)}
@@ -592,33 +626,34 @@ const Gallery = () => {
             </button>
 
             <div className="relative w-full h-full flex flex-col items-center justify-center">
-              {items[selectedItemIndex].type === 'video' ? (
+              {filteredItems[selectedItemIndex].type === 'video' ? (
                 <motion.video 
-                  key={items[selectedItemIndex].id}
+                  key={filteredItems[selectedItemIndex].id}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  src={items[selectedItemIndex].url} 
+                  src={filteredItems[selectedItemIndex].url} 
                   controls
                   autoPlay
                   className="max-w-full max-h-[80vh] shadow-2xl rounded-lg"
                 />
               ) : (
                 <motion.img 
-                  key={items[selectedItemIndex].id}
+                  key={filteredItems[selectedItemIndex].id}
                   initial={{ opacity: 0, x: 100 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -100 }}
-                  src={items[selectedItemIndex].url} 
-                  alt={items[selectedItemIndex].title || "Full Screen"} 
+                  src={filteredItems[selectedItemIndex].url} 
+                  alt={filteredItems[selectedItemIndex].category || "Full Screen"} 
                   className="max-w-full max-h-[80vh] object-contain shadow-2xl"
                   referrerPolicy="no-referrer"
                 />
               )}
+
               <div className="mt-8 text-center max-w-2xl">
-                {items[selectedItemIndex].title && <h3 className="text-2xl font-bold text-white mb-2">{items[selectedItemIndex].title}</h3>}
-                {items[selectedItemIndex].description && <p className="text-gray-400">{items[selectedItemIndex].description}</p>}
-                <p className="text-gray-600 text-xs mt-4 font-mono">{selectedItemIndex + 1} / {items.length}</p>
+                {filteredItems[selectedItemIndex].category && <h3 className="text-2xl font-bold text-white mb-2">{filteredItems[selectedItemIndex].category}</h3>}
+                {filteredItems[selectedItemIndex].description && <p className="text-gray-400">{filteredItems[selectedItemIndex].description}</p>}
+                <p className="text-gray-600 text-xs mt-4 font-mono">{selectedItemIndex + 1} / {filteredItems.length}</p>
               </div>
             </div>
           </motion.div>
@@ -635,7 +670,9 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [formData, setFormData] = useState({ title: '', description: '' });
+  const [formData, setFormData] = useState({ category: CATEGORIES[0], description: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({ category: '', description: '' });
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('google');
   const [email, setEmail] = useState('');
@@ -723,7 +760,7 @@ const Admin = () => {
               await addDoc(collection(db, 'gallery'), {
                 url: downloadURL,
                 type: fileType,
-                title: formData.title,
+                category: formData.category,
                 description: formData.description,
                 createdAt: serverTimestamp(),
                 authorUid: user.uid
@@ -736,7 +773,7 @@ const Admin = () => {
         });
       }
 
-      setFormData({ title: '', description: '' });
+      setFormData({ category: CATEGORIES[0], description: '' });
       setSelectedFiles(null);
       // Reset file input
       const fileInput = document.getElementById('file-upload') as HTMLInputElement;
@@ -748,6 +785,26 @@ const Admin = () => {
       setUploading(false);
       setUploadProgress(0);
     }
+  };
+
+  const handleUpdate = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'gallery', id), {
+        category: editFormData.category,
+        description: editFormData.description
+      });
+      setEditingId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `gallery/${id}`);
+    }
+  };
+
+  const startEditing = (item: GalleryItem) => {
+    setEditingId(item.id);
+    setEditFormData({
+      category: item.category || CATEGORIES[0],
+      description: item.description || ''
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -908,14 +965,16 @@ const Admin = () => {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Title (Optional)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Project Name"
+                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Category</label>
+                  <select 
                     className="w-full px-4 py-3 bg-black border border-white/10 rounded-lg text-white focus:border-blue-500 outline-none transition-colors"
-                    value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  />
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  >
+                    {CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Description (Optional)</label>
@@ -969,23 +1028,70 @@ const Admin = () => {
                       ) : (
                         <img 
                           src={item.url} 
-                          alt={item.title} 
+                          alt={item.category} 
                           className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                           referrerPolicy="no-referrer"
                         />
                       )}
                     </div>
-                    <div className="p-4 flex justify-between items-start">
-                      <div>
-                        <h3 className="text-white font-bold text-sm truncate max-w-[150px]">{item.title || "Untitled"}</h3>
-                        <p className="text-gray-500 text-xs">{new Date(item.createdAt?.toDate()).toLocaleDateString()}</p>
-                      </div>
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <div className="p-4">
+                      {editingId === item.id ? (
+                        <div className="space-y-3">
+                          <select 
+                            className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white text-xs outline-none focus:border-blue-500"
+                            value={editFormData.category}
+                            onChange={(e) => setEditFormData({...editFormData, category: e.target.value})}
+                          >
+                            {CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                          <textarea 
+                            className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white text-xs outline-none focus:border-blue-500 resize-none"
+                            rows={2}
+                            value={editFormData.description}
+                            onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleUpdate(item.id)}
+                              className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"
+                            >
+                              <Check size={14} /> Save
+                            </button>
+                            <button 
+                              onClick={() => setEditingId(null)}
+                              className="flex-1 py-2 bg-zinc-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1"
+                            >
+                              <X size={14} /> Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-white font-bold text-sm truncate max-w-[150px]">{item.category || "Uncategorized"}</h3>
+                            <p className="text-gray-500 text-[10px] mb-1">{new Date(item.createdAt?.toDate()).toLocaleDateString()}</p>
+                            {item.description && (
+                              <p className="text-gray-400 text-[10px] line-clamp-2">{item.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={() => startEditing(item)}
+                              className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(item.id)}
+                              className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

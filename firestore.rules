@@ -15,18 +15,17 @@ service cloud.firestore {
       return data.keys().hasAll(['url', 'type', 'createdAt', 'authorUid']) &&
              data.url is string && data.url.size() > 0 && data.url.size() < 2048 &&
              data.type in ['image', 'video'] &&
-             data.authorUid == request.auth.uid &&
              data.createdAt is timestamp &&
-             (!('title' in data) || (data.title is string && data.title.size() < 200)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 200)) &&
              (!('description' in data) || (data.description is string && data.description.size() < 2000));
     }
 
     match /gallery/{itemId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isValidGalleryItem(request.resource.data);
-      allow update: if isAuthenticated() && 
-                    isValidGalleryItem(request.resource.data) && 
-                    resource.data.authorUid == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                    isValidGalleryItem(request.resource.data) &&
+                    request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAuthenticated() && isValidGalleryItem(request.resource.data);
       allow delete: if isAuthenticated() && 
                     (resource.data.authorUid == request.auth.uid || isAdmin());
     }

@@ -8,7 +8,7 @@
         "id": { "type": "string" },
         "url": { "type": "string", "description": "URL of the project media" },
         "type": { "type": "string", "enum": ["image", "video"], "description": "Type of media" },
-        "title": { "type": "string", "description": "Title of the project" },
+        "category": { "type": "string", "description": "Category of the project" },
         "description": { "type": "string", "description": "Short description of the project" },
         "createdAt": { "type": "string", "format": "date-time" },
         "authorUid": { "type": "string" }
