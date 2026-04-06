@@ -1244,11 +1244,37 @@ const Skills = () => {
 const Contact = () => {
   const [formState, setFormState] = useState({ name: '', email: '', message: '' });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formState),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Something went wrong');
+      }
+
+      setIsSubmitted(true);
+      setFormState({ name: '', email: '', message: '' });
+      setTimeout(() => setIsSubmitted(false), 5000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -1303,11 +1329,23 @@ const Contact = () => {
               </div>
               <button 
                 type="submit"
-                className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest rounded-xl transition-all hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] flex items-center justify-center gap-3 group"
+                disabled={isSubmitting}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-gray-600 text-white font-bold uppercase tracking-widest rounded-xl transition-all hover:shadow-[0_0_30px_rgba(59,130,246,0.4)] flex items-center justify-center gap-3 group"
               >
-                {isSubmitted ? "Message Sent!" : "Send Message"}
-                {!isSubmitted && <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />}
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : isSubmitted ? (
+                  "Message Sent!"
+                ) : (
+                  "Send Message"
+                )}
+                {!isSubmitted && !isSubmitting && <Send size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />}
               </button>
+              {error && (
+                <p className="text-red-500 text-xs text-center font-bold uppercase tracking-widest mt-4">
+                  {error}
+                </p>
+              )}
             </form>
           </div>
         </div>
